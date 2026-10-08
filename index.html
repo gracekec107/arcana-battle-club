@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Arcana 전투 클럽</title>
+<style>
+:root{--bg:#f3eee4;--card:#fffaf0;--ink:#2a2118;--mut:#7a6a58;--line:#dccfb8;--acc:#7a3b8f;--hp:#c0392b;--mp:#2a6fb0;--ok:#2f8f5b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14101f;--card:#211a33;--ink:#f1eaff;--mut:#a79bc4;--line:#3a2f57;--acc:#b98cff;--hp:#e5534b;--mp:#5aa2e8;--ok:#4cc98a}}
+:root[data-theme="dark"]{--bg:#14101f;--card:#211a33;--ink:#f1eaff;--mut:#a79bc4;--line:#3a2f57;--acc:#b98cff;--hp:#e5534b;--mp:#5aa2e8;--ok:#4cc98a}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;min-height:100%}
+main{max-width:560px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0 2px;text-align:center}
+.sub{color:var(--mut);text-align:center;font-size:13px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+label{font-size:12px;color:var(--mut);display:block;margin-bottom:6px}
+input{width:100%;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:16px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:11px 12px}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}
+button:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.houses{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.houses button{text-align:left;font-size:13px}.houses button small{display:block;color:var(--mut);font-size:11px;margin-top:2px}
+.houses button.on{outline:2px solid var(--acc)}
+.code{font-size:34px;letter-spacing:8px;text-align:center;font-weight:700;color:var(--acc);margin:6px 0}
+.pl{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin-bottom:6px}
+.pl.turn{color:var(--acc)}
+.bar{height:10px;border-radius:6px;background:var(--line);overflow:hidden;margin:4px 0}
+.bar i{display:block;height:100%;transition:width .5s}
+.hp i{background:var(--hp)}.mp i{background:var(--mp)}
+.num{font-size:12px;color:var(--mut);display:flex;justify-content:space-between}
+.badge{font-size:11px;background:var(--ok);color:#fff;border-radius:8px;padding:2px 7px;margin-left:6px}
+.status{text-align:center;font-weight:600;padding:10px;border-radius:10px;margin-bottom:12px;background:var(--card);border:1px solid var(--line)}
+.status.mine{border-color:var(--acc);color:var(--acc)}
+.spells{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.spells button{text-align:left;padding:10px}.spells b{display:block}.spells small{color:var(--mut);font-size:11px}
+.log{font-size:13px;color:var(--mut);line-height:1.6}.log div:last-child{color:var(--ink);font-weight:600}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:20px;font-size:14px;z-index:9}
+.srow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)}
+.srow .nm{flex:1;font-weight:600}.srow .nm small{display:block;color:var(--mut);font-size:11px;font-weight:400}
+.srow button{width:36px;padding:6px 0}.srow b{width:20px;text-align:center}
+.rem{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-weight:600}
+.pv{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.pv div{background:var(--bg);border-radius:8px;padding:6px;text-align:center;font-size:12px}.pv b{display:block;font-size:15px}
+.mini{font-size:11px;color:var(--mut);margin-bottom:6px}
+</style>
+</head>
+<body>
+<main>
+<h1>⚡ Arcana 전투 클럽</h1>
+<div class="sub">방 코드로 접속하는 턴제 온라인 대전</div>
+<div id="app"></div>
+</main>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+const SPELLS=[
+ {id:'stupefy',name:'Stupefy',icon:'⚡',desc:'강력한 공격 22~30',cost:15,type:'atk',min:22,max:30},
+ {id:'expel',name:'Expelliarmus',icon:'✨',desc:'기본 공격 10~16',cost:4,type:'atk',min:10,max:16},
+ {id:'episkey',name:'Episkey',icon:'💚',desc:'HP 30~45 회복',cost:14,type:'heal'},
+ {id:'focus',name:'집중',icon:'🔮',desc:'MP 20 회복',cost:0,type:'mp'}
+];
+const HOUSES={
+ g:{n:'그리핀도르',e:'🦁',d:'공격 +10%'},
+ s:{n:'슬리데린',e:'🐍',d:'공격 시 HP 5 흡수'},
+ r:{n:'레번클로',e:'🦅',d:'턴 시작 MP +3'},
+ h:{n:'후플푸프',e:'🦡',d:'최대 HP +30'}
+};
+const STATS=[
+ {k:'mag',n:'마력',d:'공격 주문 위력'},
+ {k:'vit',n:'체력',d:'최대 HP'},
+ {k:'str',n:'근력',d:'공격 추가 피해'},
+ {k:'def',n:'방어',d:'받는 피해 감소 · 방어 강화'},
+ {k:'agi',n:'민첩',d:'회피 성공률 · 선공'},
+ {k:'wis',n:'정신',d:'최대 MP · MP 회복 · 치유력'},
+ {k:'luk',n:'행운',d:'치명타 확률'}
+];
+const SMIN=1,SMAX=5,POOL=28;
+const BLOCK_COST=10,DODGE_COST=6;
+const DEF_S={mag:4,vit:4,str:4,def:4,agi:4,wis:4,luk:4};
+function D(p){
+  const s=p.s||DEF_S,h=p.house;
+  return{max:120+s.vit*30+(h==='h'?30:0),mpMax:30+s.wis*8,regen:2+s.wis+(h==='r'?3:0),
+  atk:0.8+0.1*s.mag,flat:Math.round(s.str*1.5),crit:0.04+s.luk*0.03,dodge:0.25+s.agi*0.09,red:s.def*0.04,block:0.55+s.def*0.06,heal:0.8+0.1*s.wis};
+}
+const $=s=>document.querySelector(s);
+const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let peer=null,conn=null,room=null,code='',role='',busy=false,canWrite=true;
+let name='',house='g',sync=false,stats={...DEF_S};
+try{
+  name=localStorage.getItem('duel-name')||'';house=localStorage.getItem('duel-house')||'g';
+  const sv=JSON.parse(localStorage.getItem('duel-stats2')||'null');
+  if(sv&&STATS.every(t=>sv[t.k]>=SMIN&&sv[t.k]<=SMAX)&&STATS.reduce((a,t)=>a+sv[t.k],0)<=POOL)stats=sv;
+}catch(e){}
+const used=()=>STATS.reduce((a,t)=>a+stats[t.k],0);
+const saveS=()=>{try{localStorage.setItem('duel-stats2',JSON.stringify(stats))}catch(e){}};
+
+function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2400)}
+function build(nm,h,sv){
+  const ok=sv&&STATS.every(t=>sv[t.k]>=SMIN&&sv[t.k]<=SMAX)&&STATS.reduce((a,t)=>a+sv[t.k],0)<=POOL;
+  const st=ok?{...sv}:{...DEF_S};
+  const p={name:String(nm||'마법사').slice(0,12),house:HOUSES[h]?h:'g',s:st,shield:false};
+  const d=D(p);p.max=d.max;p.hp=d.max;p.mpMax=d.mpMax;p.mp=Math.min(d.mpMax,20+st.wis*4);return p;
+}
+function mkPlayer(){return build(name,house,stats)}
+function firstTurn(p1,p2){return (p2.s||DEF_S).agi>(p1.s||DEF_S).agi?'p2':'p1'}
+function genCode(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c='';for(let i=0;i<4;i++)c+=a[Math.floor(Math.random()*a.length)];return c}
+
+const PREFIX='arcana-battle-club-';
+function cleanup(){
+  try{if(conn)conn.close()}catch(e){}
+  try{if(peer)peer.destroy()}catch(e){}
+  peer=null;conn=null;room=null;code='';role='';busy=false;sync=false;render();
+}
+function leave(){cleanup()}
+function push(){if(conn&&conn.open)conn.send({t:'state',room});render()}
+function init(){
+  if(!window.Peer){$('#app').innerHTML='<div class="card">연결 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.</div>';return}
+  render();
+}
+
+function create(retry){
+  if(!retry&&sync)return;
+  sync=true;
+  const c=genCode();
+  peer=new Peer(PREFIX+c);
+  peer.on('open',()=>{
+    code=c;role='p1';sync=false;
+    room={code:c,status:'waiting',turn:'p1',p1:mkPlayer(),p2:null,winner:null,log:['방이 열렸어요. 친구를 기다리는 중…']};
+    render();
+  });
+  peer.on('connection',cn=>{
+    if(conn&&conn.open){cn.on('open',()=>{cn.send({t:'full'});setTimeout(()=>cn.close(),300)});return}
+    conn=cn;
+    cn.on('data',onHostData);
+    cn.on('close',()=>{
+      if(conn===cn){conn=null;if(room&&room.status!=='over'){room={...room,status:'over',winner:'gone',log:[...room.log,'상대와의 연결이 끊겼어요'].slice(-8)};render()}}
+    });
+  });
+  peer.on('error',e=>{
+    if(e.type==='unavailable-id'&&!room){try{peer.destroy()}catch(x){}create(true);return}
+    toast('연결 오류: '+e.type);
+  });
+}
+function onHostData(m){
+  if(!room||!m)return;
+  if(m.t==='join'){
+    if(room.status!=='waiting'||!m.p){try{conn.send({t:'full'})}catch(e){}return}
+    const p=build(m.p.name,m.p.house,m.p.s),t=firstTurn(room.p1,p);
+    room={...room,p2:p,status:'playing',turn:t,log:[...room.log,`${p.name} 입장! ${(t==='p1'?room.p1:p).name}의 선공으로 결투 시작`].slice(-8)};
+    push();
+  }else if(m.t==='act'&&room.status==='playing'&&room.turn==='p2'){room=applyAct(room,'p2',m.id);push()}
+  else if(m.t==='react'&&room.status==='react'&&room.pend&&room.pend.to==='p2'){room=applyReact(room,m.c);push()}
+  else if(m.t==='rematch'&&room.status==='over'&&room.p2&&room.winner!=='gone'){room=doRematch(room);push()}
+}
+function join(){
+  if(sync)return;
+  const c=($('#codeIn').value||'').trim().toUpperCase();
+  if(c.length<4)return toast('방 코드 4자리를 입력하세요');
+  sync=true;
+  peer=new Peer();
+  let t=null,done=false;
+  const fail=m=>{if(done)return;done=true;clearTimeout(t);toast(m);cleanup()};
+  peer.on('open',()=>{
+    conn=peer.connect(PREFIX+c,{reliable:true});
+    t=setTimeout(()=>fail('방을 찾을 수 없어요'),10000);
+    conn.on('open',()=>conn.send({t:'join',p:{name,house,s:stats}}));
+    conn.on('data',m=>{
+      if(m.t==='full')return fail('이미 시작됐거나 가득 찬 방이에요');
+      if(m.t==='state'){
+        if(!done){done=true;clearTimeout(t);role='p2';code=c;sync=false}
+        room=m.room;busy=false;render();
+      }
+    });
+    conn.on('close',()=>{
+      if(!done)return fail('연결이 끊겼어요');
+      if(room&&room.status!=='over'){room={...room,status:'over',winner:'gone'};render()}
+    });
+  });
+  peer.on('error',e=>fail(e.type==='peer-unavailable'?'방을 찾을 수 없어요':'연결 오류: '+e.type));
+}
+
+function act(id){
+  if(!room||room.status!=='playing'||room.turn!==role||busy)return;
+  if(role==='p1'){room=applyAct(room,'p1',id);push()}
+  else if(conn&&conn.open){busy=true;conn.send({t:'act',id});setTimeout(()=>{busy=false},1500)}
+}
+function applyAct(r,who,id){
+  const sp=SPELLS.find(x=>x.id===id);if(!sp)return r;
+  const ok=who==='p1'?'p2':'p1';
+  const a={...r[who]},b={...r[ok]};
+  const A=D(a),B=D(b);
+  if(a.mp<sp.cost)return r;
+  const R=(x,y)=>x+Math.floor(Math.random()*(y-x+1));
+  a.mp-=sp.cost;
+  if(sp.type==='atk'){
+    let d=Math.round(R(sp.min,sp.max)*A.atk)+A.flat;if(a.house==='g')d=Math.round(d*1.1);
+    const crit=Math.random()<A.crit;if(crit)d=Math.round(d*1.5);
+    return {...r,[who]:a,status:'react',pend:{from:who,to:ok,sp:sp.name,d,crit},log:[...r.log,`${a.name}의 ${sp.name}!${crit?' (치명타)':''} ${b.name}의 대응을 기다리는 중…`].slice(-8)};
+  }
+  let msg='';
+  if(sp.type==='heal'){const h=Math.round(R(30,45)*A.heal);a.hp=Math.min(a.max,a.hp+h);msg=`${a.name}이(가) Episkey로 HP ${h} 회복`}
+  else{a.mp+=20;msg=`${a.name}이(가) 정신을 집중해 MP를 모았다`}
+  a.mp=Math.min(A.mpMax,a.mp);
+  b.mp=Math.min(B.mpMax,b.mp+B.regen);
+  return {...r,[who]:a,[ok]:b,turn:ok,status:'playing',log:[...r.log,msg+` → ${b.name}의 차례`].slice(-8)};
+}
+function applyReact(r,c){
+  const pd=r.pend;if(!pd||r.status!=='react')return r;
+  const a={...r[pd.from]},b={...r[pd.to]},B=D(b);
+  let d=pd.d,evaded=false,tag='';
+  if(c==='block'&&b.mp>=BLOCK_COST){b.mp-=BLOCK_COST;d=Math.round(d*(1-B.block));tag='방어'}
+  else if(c==='dodge'&&b.mp>=DODGE_COST){b.mp-=DODGE_COST;if(Math.random()<B.dodge)evaded=true;else tag='회피 실패'}
+  else tag='무대응';
+  let msg;
+  if(evaded){msg=`${b.name}이(가) ${pd.sp}을(를) 회피했다!`}
+  else{
+    d=Math.max(1,Math.round(d*(1-B.red)));b.hp=Math.max(0,b.hp-d);
+    if(a.house==='s')a.hp=Math.min(a.max,a.hp+5);
+    msg=`${b.name}이(가) ${tag}${tag==='방어'?'로':'로'} ${d} 피해를 받았다`;
+  }
+  const over=b.hp<=0;
+  if(!over)b.mp=Math.min(B.mpMax,b.mp+B.regen);
+  if(over)msg+=` 🏆 ${a.name} 승리!`;else msg+=` → ${b.name}의 차례`;
+  return {...r,[pd.from]:a,[pd.to]:b,turn:over?pd.from:pd.to,status:over?'over':'playing',winner:over?pd.from:null,pend:null,log:[...r.log,msg].slice(-8)};
+}
+function react(c){
+  if(!room||room.status!=='react'||!room.pend||room.pend.to!==role||busy)return;
+  if(role==='p1'){room=applyReact(room,c);push()}
+  else if(conn&&conn.open){busy=true;conn.send({t:'react',c});setTimeout(()=>{busy=false},1500)}
+}
+function rematch(){
+  if(!room||room.status!=='over'||room.winner==='gone')return;
+  if(role==='p1'){room=doRematch(room);push()}
+  else if(conn&&conn.open)conn.send({t:'rematch'});
+}
+function doRematch(r){
+  const f=p=>({...p,hp:p.max,mp:Math.min(D(p).mpMax,20+p.s.wis*4),shield:false});
+  const p1=f(r.p1),p2=f(r.p2),t=firstTurn(p1,p2);
+  return {...r,p1,p2,status:'playing',turn:t,winner:null,pend:null,log:['재대결 시작! '+(t==='p1'?p1:p2).name+'의 선공']};
+}
+
+function sline(p){const s=p.s;return s?`마${s.mag} 체${s.vit} 근${s.str} 방${s.def} 민${s.agi} 정${s.wis} 운${s.luk}`:''}
+function panel(p,key){
+  const h=HOUSES[p.house]||HOUSES.g,mm=p.mpMax||50;
+  const turn=(room.status==='playing'&&room.turn===key)||(room.status==='react'&&room.pend&&room.pend.to===key);
+  return `<div class="card"><div class="pl ${turn?'turn':''}"><span>${h.e} ${esc(p.name)}${key===role?' (나)':''}${p.shield?'<span class="badge">🛡️ 방어막</span>':''}</span><span>${turn?'▶ 차례':''}</span></div>
+  <div class="mini">${sline(p)}</div>
+  <div class="bar hp"><i style="width:${p.hp/p.max*100}%"></i></div><div class="num"><span>HP</span><span>${p.hp} / ${p.max}</span></div>
+  <div class="bar mp"><i style="width:${p.mp/mm*100}%"></i></div><div class="num"><span>MP</span><span>${p.mp} / ${mm}</span></div></div>`;
+}
+function changeStat(k,dv){
+  const n=stats[k]+dv;
+  if(n<SMIN||n>SMAX||(dv>0&&used()>=POOL))return;
+  stats[k]=n;saveS();render();
+}
+function lobby(){
+  const rem=POOL-used(),d=D({s:stats,house}),ready=canWrite;
+  return `${canWrite?'':'<div class="card">이 페이지에 참여(Contributor) 권한이 있어야 대전에 참가할 수 있어요.</div>'}
+  <div class="card"><label>마법사 이름</label><input id="nameIn" maxlength="12" value="${esc(name)}" placeholder="이름을 입력하세요"></div>
+  <div class="card"><label>기숙사 선택</label><div class="houses">${Object.entries(HOUSES).map(([k,v])=>`<button data-h="${k}" class="${k===house?'on':''}">${v.e} ${v.n}<small>${v.d}</small></button>`).join('')}</div></div>
+  <div class="card"><div class="rem"><span>스탯 (각 ${SMIN}~${SMAX})</span><span style="color:${rem===0?'var(--ok)':'var(--acc)'}">남은 포인트 ${rem}</span></div>
+  ${STATS.map(t=>`<div class="srow"><div class="nm">${t.n}<small>${t.d}</small></div><button data-s="${t.k}" data-d="-1" ${stats[t.k]<=SMIN?'disabled':''}>−</button><b>${stats[t.k]}</b><button data-s="${t.k}" data-d="1" ${(stats[t.k]>=SMAX||rem<=0)?'disabled':''}>＋</button></div>`).join('')}
+  <div class="pv"><div>최대 HP<b>${d.max}</b></div><div>최대 MP<b>${d.mpMax}</b></div><div>MP 회복<b>+${d.regen}</b></div><div>치명타<b>${Math.round(d.crit*100)}%</b></div><div>회피 성공률<b>${Math.round(d.dodge*100)}%</b></div><div>피해 감소<b>${Math.round(d.red*100)}%</b></div></div>
+  <div class="mini" style="margin:8px 0 0">공격 위력 ×${d.atk.toFixed(1)} · 추가 피해 +${d.flat} · 방어 시 피해 −${Math.round(d.block*100)}% (MP ${BLOCK_COST}) · 회피 MP ${DODGE_COST}</div></div>
+  <div class="card"><button class="pri" style="width:100%" id="mk" ${ready?'':'disabled'}>${rem===0?'새 방 만들기':`새 방 만들기 (남은 포인트 ${rem})`}</button>
+  <div style="text-align:center;color:var(--mut);margin:10px 0;font-size:12px">또는 친구의 방 코드로 입장</div>
+  <div class="row"><input id="codeIn" maxlength="4" placeholder="방 코드" style="text-transform:uppercase"><button id="jn" ${ready?'':'disabled'}>입장</button></div></div>`;
+}
+function render(){
+  const app=$('#app');
+  if(!room){
+    app.innerHTML=lobby();
+    $('#nameIn').oninput=e=>{name=e.target.value;try{localStorage.setItem('duel-name',name)}catch(x){}};
+    document.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{house=b.dataset.h;try{localStorage.setItem('duel-house',house)}catch(x){}render()});
+    document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>changeStat(b.dataset.s,+b.dataset.d));
+    $('#mk').onclick=create;$('#jn').onclick=join;
+    return;
+  }
+  const mine=room.turn===role,playing=room.status==='playing'||room.status==='react';
+  let top='';
+  if(room.status==='waiting'){
+    top=`<div class="card"><label style="text-align:center">친구에게 이 코드를 알려주세요</label><div class="code">${esc(code)}</div><div class="mini" style="text-align:center">친구가 같은 사이트 주소에서 이 코드를 입력하면 시작돼요.<br>방장이 이 화면을 닫으면 방이 사라져요.</div></div>`;
+  }else if(room.status==='over'){
+    const gone=room.winner==='gone',won=room.winner===role;
+    top=`<div class="status ${won?'mine':''}">${gone?'🔌 상대와의 연결이 끊겼어요':won?'🏆 승리했어요!':'💀 패배했어요'}</div>${gone?'':'<button class="pri" style="width:100%;margin-bottom:12px" id="rm">재대결</button>'}`;
+  }else{
+    if(room.status==='react'&&room.pend){
+      const pd=room.pend,me2=room[role],M=D(me2);
+      if(pd.to===role){
+        const exp=Math.max(1,Math.round(pd.d*(1-M.red)));
+        top=`<div class="status mine">⚠️ ${esc(room[pd.from].name)}의 ${esc(pd.sp)}${pd.crit?' (치명타)':''}! 예상 피해 약 ${exp}</div>
+        <div class="spells" style="margin-bottom:12px">
+        <button data-r="block" ${me2.mp<BLOCK_COST?'disabled':''}><b>🛡️ 방어</b><small>MP ${BLOCK_COST} · 피해 −${Math.round(M.block*100)}%</small></button>
+        <button data-r="dodge" ${me2.mp<DODGE_COST?'disabled':''}><b>💨 회피</b><small>MP ${DODGE_COST} · 성공 ${Math.round(M.dodge*100)}% (실패 시 전부 맞음)</small></button>
+        <button data-r="none" style="grid-column:1/-1"><b>무대응</b><small>그대로 맞기</small></button></div>`;
+      }else top=`<div class="status">⏳ 상대가 대응하는 중…</div>`;
+    }else top=`<div class="status ${mine?'mine':''}">${mine?'⚡ 내 차례 — 주문을 선택하세요':'⏳ 상대의 차례를 기다리는 중…'}</div>`;
+  }
+  const opKey=role==='p1'?'p2':'p1';
+  app.innerHTML=top+(room[opKey]?panel(room[opKey],opKey):'')+panel(room[role],role)+
+  (playing?`<div class="spells">${SPELLS.map(s=>`<button data-sp="${s.id}" ${(room.status!=='playing'||!mine||room[role].mp<s.cost)?'disabled':''}><b>${s.icon} ${s.name}</b><small>${s.desc} · MP ${s.cost}</small></button>`).join('')}</div>`:'')+
+  `<div class="card log" style="margin-top:12px">${room.log.map(l=>`<div>${esc(l)}</div>`).join('')}</div>
+  <div class="row"><span style="align-self:center;color:var(--mut);font-size:12px">방 ${esc(code)}</span><button id="lv">나가기</button></div>`;
+  document.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>act(b.dataset.sp));
+  document.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>react(b.dataset.r));
+  const rm=$('#rm');if(rm)rm.onclick=rematch;
+  $('#lv').onclick=leave;
+}
+init();
+</script>
+</body>
+</html>
